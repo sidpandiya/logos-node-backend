@@ -4903,10 +4903,23 @@ function sendNoti(toUserId,APNKey,title,type,fromUserId){
 // data = {	"userId":"-LIjqeXa4rhjySYcfzom"}
 exports.getNotifications = functions.https.onRequest((req,res)=>{
     var userId = req.body.userId;
+    var start = req.body.start;
+    var offset =parseInt(req.body.offset);
+    const rootRef = admin.database().ref();
+    var postsRef = rootRef.child('/userNotification');
+    console.log("start "+start)
+    if(start === 0 || start ==='0'){
+        console.log("in if")
+        postsRef = rootRef.child('/userNotification').limitToFirst(offset).orderByChild("toUser").equalTo(userId);
+    }
+    else{
+        console.log("in else")
+       postsRef = rootRef.child('/userNotification').startAt(null,start).limitToFirst(offset).orderByChild("toUser").equalTo(userId);
+    }
     var finalNotiArray = [];
     console.log("fetch notifications for "+userId);
-    var getNoti = admin.database().ref('/userNotification').orderByChild("toUser").equalTo(userId);
-    getNoti.once('value',(gotNotifications)=>{
+   // var getNoti = postsRef.orderByChild("toUser").equalTo(userId);
+    postsRef.once('value',(gotNotifications)=>{
         if(gotNotifications.exists()){
             var finalFunction = function(){
                 var status = {
@@ -4937,8 +4950,9 @@ exports.getNotifications = functions.https.onRequest((req,res)=>{
                             fromUserId:noti.val().fromUser,
                             userName :userSnap.val().name,
                             userPhoto: userSnap.val().photo,
-                            userHighrEndorsment:userSnap.val().highEndorsmentName,
-                            timeago:timeago
+                            userHighEndorsment:userSnap.val().highEndorsmentName,
+                            timeago:timeago,
+                            notiId: noti.key
                             
                         }
                         console.log("not is "+JSON.stringify(not));
