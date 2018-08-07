@@ -1,0 +1,15 @@
+{
+  "rules": {
+    ".read": "auth != null",
+    ".write": "auth != null",
+      "newslrcount": {
+      ".indexOn": ["newsId"]
+    },
+      "postreacts":{
+         ".indexOn": ["postId"]
+      },
+      "userknowsabout":{
+        ".indexOn": ["userId"]
+      }
+  }   
+}
