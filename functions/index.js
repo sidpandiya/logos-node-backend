@@ -1419,11 +1419,12 @@ exports.getNewsById = functions.https.onRequest((req, res) => {
                                     //    var res=Math.max.apply(0,p.map(function(v){return v.endorsementCount}));
                                     //    var finalData = p.find(function(o){ return o.endorsementCount === res; })
                                        console.log("avg is "+avg);
+								var finalNewsContentArray=newsDetails.reverse()
                                news={
                                    newsId:snap.key,
                                    newsDetails:snap.val(),
                                    userDetails:userDetails,
-                                   newsContent:newsDetails,
+                                   newsContent:finalNewsContentArray,
                                    newsLRCount:avg,
                                    agreeCount:agreeCount,
                                    disagreeCount:disagreeCount,
@@ -1506,7 +1507,8 @@ exports.addUser=functions.https.onRequest((req,res)=>{
             "country" : req.body.country,
             "currentCity" : req.body.currentCity,
             "currentCountry" : req.body.currentCountry,
-            "politicalOrientation" : req.body.politicalOrientation
+            "politicalOrientation" : req.body.politicalOrientation,
+			"APNToken" : req.body.APNToken
         }
         var logginType=parseInt(req.body.logginType);
         var userCredentials=req.body.creadentials;
@@ -4865,6 +4867,7 @@ function sendNoti(toUserId,APNKey,title,type,fromUserId){
                 .then((response) => {
                 // Response is a message ID string.
                 console.log('Successfully sent message:'+JSON.stringify(response));
+                console.log("got new changes");
                 var notiData = {
                             toUser : toUserId,
                             title : msgTitle,
@@ -4873,6 +4876,8 @@ function sendNoti(toUserId,APNKey,title,type,fromUserId){
                             createdOn: moment().format(),
                             fromUser:fromUserId
                         };
+						
+						console.log("add noti table data is "+JSON.stringify(notiData));
                         var myRef = admin.database().ref('/userNotification').push(notiData)
                         .then((notiAddSnap) => {
                             console.log("noti added "+notiAddSnap.key);
@@ -4906,17 +4911,12 @@ exports.getNotifications = functions.https.onRequest((req,res)=>{
     var start = req.body.start;
     var offset =parseInt(req.body.offset);
     const rootRef = admin.database().ref();
-    var postsRef = rootRef.child('/userNotification');
+  //var postsRef = rootRef.child('/userNotification');
     console.log("start "+start)
     if(start === 0 || start ==='0'){
         console.log("in if")
-        postsRef = rootRef.child('/userNotification').limitToFirst(offset).orderByChild("toUser").equalTo(userId);
-    }
-    else{
-        console.log("in else")
-       postsRef = rootRef.child('/userNotification').startAt(null,start).limitToFirst(offset).orderByChild("toUser").equalTo(userId);
-    }
-    var finalNotiArray = [];
+        var postsRef = rootRef.child('userNotification').limitToFirst(offset).orderByChild("toUser").equalTo(userId);
+        var finalNotiArray = [];
     console.log("fetch notifications for "+userId);
    // var getNoti = postsRef.orderByChild("toUser").equalTo(userId);
     postsRef.once('value',(gotNotifications)=>{
@@ -4994,4 +4994,100 @@ exports.getNotifications = functions.https.onRequest((req,res)=>{
         console.log("error in getting comment list "+err)
         return res.status(500).json(status);
     })
+    }
+    else{
+        console.log("in else")
+       var postsRef1 = rootRef.child('userNotification').startAt(null,start).limitToFirst(offset);
+       var finalNotiArray2 = [];
+    console.log("fetch notifications for "+userId);
+   // var getNoti = postsRef.orderByChild("toUser").equalTo(userId);
+   postsRef1.once('value',(gotNotifications)=>{
+        if(gotNotifications.exists()){
+            var finalFunction = function(){
+                var status = {
+                    code :1,
+                    msg : "Got Notifications",
+                    data : finalNotiArray2
+                }
+                return res.status(200).json(status);
+            }
+            var isProccessing = false;
+            return new Promise((resolve,reject)=>{
+                var counter = 0;
+                gotNotifications.forEach((noti)=>{
+                    if(noti.val().toUser === userId){
+                        console.log("JSOn stri "+JSON.stringify(noti));
+                    console.log("cccc "+noti.val().fromUser);
+                    var userRef = admin.database().ref('user').child(noti.val().fromUser);
+                    userRef.once('value').then((userSnap)=> {
+                        console.log("usernsanap "+JSON.stringify(userSnap.val()));
+                    
+                        isProccessing = true;
+                        counter++;
+                        var timeago=moment(noti.val().createdOn).fromNow()
+                        var not  = {
+                            notiTitle : noti.val().title,
+                            notiBody : noti.val().body,
+                            notiMessageid : noti.val().messageId,
+                            toUser : noti.val().toUser,
+                            fromUserId:noti.val().fromUser,
+                            userName :userSnap.val().name,
+                            userPhoto: userSnap.val().photo,
+                            userHighEndorsment:userSnap.val().highEndorsmentName,
+                            timeago:timeago,
+                            notiId: noti.key
+                            
+                        }
+                        console.log("not is "+JSON.stringify(not));
+                        finalNotiArray2.push(not);
+                        isProccessing = false;
+                        console.log(gotNotifications.numChildren() +"==="+ finalNotiArray2.length);
+                        if(gotNotifications.numChildren() === counter){
+                            if(!isProccessing){
+                                console.log("resolving..."+JSON.stringify(finalNotiArray2));
+                                resolve(finalFunction());
+                            }
+                        }
+                    return 0;
+                    }).catch(err=>{
+                        console.log("err in gettin user details "+err)
+                        var status = {
+                            code : 0,
+                            msg : "err in gettin user details "
+                        };
+                        return res.status(200).json(status);
+                    })
+                    }
+                    else{
+                        counter++;
+                        if(gotNotifications.numChildren() === counter){
+                            if(!isProccessing){
+                                console.log("resolving..."+JSON.stringify(finalNotiArray2));
+                                resolve(finalFunction());
+                            }
+                        }
+                    }
+                    
+                })
+               
+            });
+            //console.log("got response from getReplies "+JSON.stringify(userData));
+        }
+        else{
+            var status = {
+                code : 0,
+                msg : "No comments found"
+            };
+            return res.status(200).json(status);
+        }
+    }).catch(err=>{
+        var status = {
+            code : 0,
+            msg : "Error occured while get Comments of News"
+        }
+        console.log("error in getting comment list "+err)
+        return res.status(500).json(status);
+    })
+    }
+    
 })
