@@ -56,6 +56,7 @@ exports.addCommentOpinion = functions.https.onRequest((req,res)=>{
                        code : 1,
                        msg : "Comment Opinion added succesfully"
                    }
+                   updateAgreeCountVal(commentId);
                     return res.status(200).json(status);
                 }).catch(err=>{
                     console.log("error while update "+err);
@@ -86,6 +87,7 @@ exports.addCommentOpinion = functions.https.onRequest((req,res)=>{
                                 code:1,
                                 msg:"Opinion added succesfully.."
                             }
+                            updateAgreeCountVal(commentId);
                         return res.status(200).json(status);
                     }).catch(err=>{
                         console.log("error in addCommentOpinion "+err)
@@ -107,6 +109,7 @@ exports.addCommentOpinion = functions.https.onRequest((req,res)=>{
                                 code:1,
                                 msg:"Opinion added succesfully.."
                             }
+                            updateAgreeCountVal(commentId);
                         return res.status(200).json(status);
                     }).catch(err=>{
                         console.log("error in addCommentOpinion "+err)
@@ -127,6 +130,55 @@ exports.addCommentOpinion = functions.https.onRequest((req,res)=>{
   });
 })
 
+
+/*******FUNCTION TO UPDATE AGREECOUNT DISAGREECOUNT NEUTRALCOUNT REPLIES COUNT    */
+function updateAgreeCountVal(commentId){
+    var getOpinion = admin.database().ref('commentopinion').orderByChild("commentId").equalTo(commentId);
+    getOpinion.once('value').then((commentOpinions)=>{
+        var noOfAgree=0;
+        var noOfDisagree=0;
+        var noOfNeutral=0;
+        var count=0;
+        commentOpinions.forEach(opinion=>{
+            count=count+1
+            if(parseInt(opinion.val().opinion) === 0){
+                noOfNeutral=noOfNeutral+1
+            }
+            else if(parseInt(opinion.val().opinion) === 1){
+                noOfAgree=noOfAgree+1;
+            }
+            else if(parseInt(opinion.val().opinion) === 2){
+                noOfDisagree=noOfDisagree+1
+            }
+            else{
+                console.log("Nothing");
+            }
+        })
+        console.log("noOfNeutral "+noOfNeutral);
+        console.log("noOfAgree "+noOfAgree);
+        console.log("noOfDisagree "+noOfDisagree);
+        console.log("count "+count);
+        console.log("commentOpinions.numChildren() "+commentOpinions.numChildren());
+        if(count === commentOpinions.numChildren()){
+            var commentRef = admin.database().ref('postcomments')
+            .child(commentId)
+            var data={
+                "noOfNeutral": noOfNeutral,
+                "noOfAgree":noOfAgree,
+                "noOfDisagree":noOfDisagree
+            }
+            commentRef.update(data).then(updateCommentSnap=>{
+
+                return 0;
+            }).catch(err=>{
+                console.log("Error in updating comment"+err);
+            })
+        }
+        return 0;
+    }).catch(err=>{
+        console.log("Error in getting comment opinion by comment id "+err);
+    })
+}
 
 
 /********************************************************************************** */
@@ -2540,7 +2592,11 @@ exports.addNewsComments=functions.https.onRequest((req,res)=>{
         "openion":parseInt(req.body.openion),
         "userId":req.body.userId,
         "postId":req.body.postId,
-        "isEdited":0
+        "isEdited":0,
+        "noOfReplies" : 0,
+        "noOfAgree" : 0,
+        "noOfDisAgree": 0,
+        "noOfNeutral" :0
     }
     var postcommentstRef=admin.database().ref('/postcomments')
     .orderByChild("userId").equalTo(req.body.userId)
@@ -2628,7 +2684,7 @@ function sendCommentNotification(postId,userId){
         userRef.once('value').then((userSnap)=> {
             console.log("send notification"+JSON.stringify(userSnap.val()));
          
-            sendNoti(postDetails.userId,userSnap.val().APNToken,"Comment",2,userId);
+            sendNoti(postDetails.userId,userSnap.val().APNToken,postId,2,userId);
             return 0;
         }).catch(err=>{
             console.log("err in user details "+err)
@@ -2975,6 +3031,7 @@ exports.addReplyOnComment=functions.https.onRequest((req,res)=>{
                             code:1,
                             msg:"Reply Added Successfully"
                         }
+                        updateReplyNo(req.body.commentId);
                         sendreplyNotification(req.body.commentId,req.body.userId);
                         addUserPointAfterCommentsOrReply(req.body.userId,"Reply")
                         return res.status(200).json(status);
@@ -2991,6 +3048,7 @@ exports.addReplyOnComment=functions.https.onRequest((req,res)=>{
                             code:1,
                             msg:"Reply Added Successfully"
                         }
+                        updateReplyNo(req.body.commentId);
                         sendreplyNotification(req.body.commentId,req.body.userId);
                         addUserPointAfterCommentsOrReply(req.body.userId,"Reply")
                         return res.status(200).json(status);
@@ -3010,8 +3068,10 @@ exports.addReplyOnComment=functions.https.onRequest((req,res)=>{
                     code:1,
                     msg:"Reply Added Successfully"
                 }
+                updateReplyNo(req.body.commentId);
                 sendreplyNotification(req.body.commentId,req.body.userId);
                 addUserPointAfterCommentsOrReply(req.body.userId,"Reply")
+               
                 return res.status(200).json(status);
             }).catch(err=>{
                 console.log("err in adding reply "+err);
@@ -3030,11 +3090,11 @@ function sendreplyNotification(commentId,userId){
     postRef.once('value').then((postSanp)=>{
         var postDetails=postSanp.val();
         console.log("postDetails "+JSON.stringify(postDetails));
-        var userRef = admin.database().ref('/user').child(postDetails.userId);
+        var userRef = admin.database().ref('user').child(postDetails.userId);
         userRef.once('value').then((userSnap)=> {
             console.log("send notification"+JSON.stringify(userSnap.val()));
          
-            sendNoti(postDetails.userId,userSnap.val().APNToken,"Comment",2,userId);
+            sendNoti(postDetails.userId,userSnap.val().APNToken,postDetails.postId,2,userId);
             return 0;
         }).catch(err=>{
             console.log("err in user details "+err)
@@ -3048,7 +3108,26 @@ function sendreplyNotification(commentId,userId){
    
 }
 
+function updateReplyNo(commentId){
+    var getOpinion = admin.database().ref('commentsonpostcomments').orderByChild("commentId").equalTo(commentId);
+    getOpinion.once('value').then((commentOpinions)=>{
+        console.log("commentOpinions.numChildren() "+commentOpinions.numChildren());
+            var commentRef = admin.database().ref('postcomments')
+            .child(commentId)
+            var data={
+                "noOfReplies":commentOpinions.numChildren()
+            }
+            commentRef.update(data).then(updateCommentSnap=>{
 
+                return 0;
+            }).catch(err=>{
+                console.log("Error in updating comment"+err);
+            })
+        return 0;
+    }).catch(err=>{
+        console.log("Error in getting comment opinion by comment id "+err);
+    })
+}
 /**************************************************************************************************
  * url to endorse the skills 
  * input user id ,skills id 
@@ -4619,7 +4698,12 @@ exports.updateComment = functions.https.onRequest((req,res)=>{
                 "isReported":previouscomment.isReported,
                 "openion":previouscomment.openion,
                 "postId":previouscomment.postId,
-                "userId":previouscomment.userId
+                "userId":previouscomment.userId,
+                "noOfReplies" : previouscomment.noOfReplies,
+                "noOfAgree" : previouscomment.noOfAgree,
+                "noOfDisAgree": previouscomment.noOfDisAgree,
+                "noOfNeutral" : previouscomment.noOfNeutral
+
             }
             var editCommentre=admin.database().ref('commenteditedhistory')
             return admin.database().ref('commenteditedhistory').push(editCommentData).then((snapshot) => {
@@ -4874,7 +4958,9 @@ function sendNoti(toUserId,APNKey,title,type,fromUserId){
                             body : msgBody,
                             messageId : response.multicastId,
                             createdOn: moment().format(),
-                            fromUser:fromUserId
+                            fromUser:fromUserId,
+                            type:type,
+                            newsId:title
                         };
 						
 						console.log("add noti table data is "+JSON.stringify(notiData));
@@ -4952,8 +5038,9 @@ exports.getNotifications = functions.https.onRequest((req,res)=>{
                             userPhoto: userSnap.val().photo,
                             userHighEndorsment:userSnap.val().highEndorsmentName,
                             timeago:timeago,
-                            notiId: noti.key
-                            
+                            notiId: noti.key,
+                            type:noti.val().type,
+                            newsId:noti.val().newsId
                         }
                         console.log("not is "+JSON.stringify(not));
                         finalNotiArray.push(not);
