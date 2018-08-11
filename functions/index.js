@@ -855,10 +855,10 @@ exports.getAllPosts2 = functions.https.onRequest((req, res) => {
         relativeTime : {
             future: "%s",
             past:   "%s",
-            s  : 'a few seconds',
-            ss : '%d seconds',
-            m:  " mintues",
-            mm: "%d mintues",
+            s  : '1s',
+            ss : '%d s',
+            m:  "m",
+            mm: "%d m",
             h:  "1h",
             hh: "%dh",
             d:  "1d",
@@ -2441,6 +2441,11 @@ exports.addOpnionOnNews=functions.https.onRequest((req,res)=>{
  * input:UserId,NewsId,L-R count value 
  * @Author Mansi 31.05.2018
  * url=https://us-central1-logos-app-915d7.cloudfunctions.net/addLRCountOnNews
+ * data:{
+	"lRcount":50.0,
+	"userId":"-LJcbRMOWmTkAQvkwPQk",
+	"postId":"-LJ_s7gRztewcKbFjd-y"
+}
  */
 exports.addLRCountOnNews=functions.https.onRequest((req,res)=>{
     var lrCountData={
@@ -2448,16 +2453,66 @@ exports.addLRCountOnNews=functions.https.onRequest((req,res)=>{
         "userId":req.body.userId,
         "newsId":req.body.postId
     }
-    var newslrcounttRef=admin.database().ref('/newslrcount')
+    var newslrcounttRef2=admin.database().ref('/newslrcount')
     .orderByChild("userId").equalTo(req.body.userId)
-    newslrcounttRef.once('value', function(snapshot) {
-         var key="";
-         snapshot.forEach(function (childSnapshot) {
-             key= childSnapshot.key;
-         });
-         console.log("key "+key);
-         if(!snapshot.exists()){
-            var newslrcountreactsRef = admin.database().ref('/newslrcount')
+    newslrcounttRef2.once('value', function(snapshot) {
+        //  var key="";
+        //  snapshot.forEach(function (childSnapshot) {
+        //      key= childSnapshot.key;
+        //  });
+       //  console.log("key "+key);
+
+         if(snapshot.exists()){
+             var isPush=false
+             var counter = 0;
+            snapshot.forEach(snap=>{
+                counter++;
+                console.log("snap snap is "+JSON.stringify(snap));
+                console.log("req.body.postId "+req.body.postId);
+                console.log("snap.val().postId "+snap.val().newsId);
+
+                    if(req.body.postId === snap.val().newsId){
+                        //update .
+                        var newslrcountreactsRef1 = admin.database().ref('/newslrcount').child(snap.key)
+                        newslrcountreactsRef1.update(lrCountData).then((newslrcountreacsnapshot) => {
+                            console.log("snapshot "+newslrcountreacsnapshot)
+                            var status={
+                                code:1,
+                                msg:"user Opnion added on News"
+                            }
+                        
+                            return res.status(200).json(status);
+                        }).catch(err=>{
+                            console.log("error in adding opinon on News"+err);
+                            
+                        })
+                    }
+                    else{
+                        //insert
+                        isPush=true;
+                        //return ;
+                        console.log(counter +"==="+ snapshot.numChildren());
+                        if(counter === snapshot.numChildren()){
+                            var newslrcountreactsRef = admin.database().ref('/newslrcount')
+                            .push(lrCountData).then((newslrcountreacsnapshot) => {
+                                console.log("snapshot "+newslrcountreacsnapshot)
+                                var status={
+                                    code:1,
+                                    msg:"user Opnion added on News"
+                                }
+                               
+                                return res.status(200).json(status);
+                            }).catch(err=>{
+                                console.log("error in adding opinon on News"+err);
+                                
+                            })
+                        }
+                    }
+            })
+           
+         }
+         else{
+            var newslrcountreactsRef4= admin.database().ref('/newslrcount')
             .push(lrCountData).then((newslrcountreacsnapshot) => {
                 console.log("snapshot "+newslrcountreacsnapshot)
                 var status={
@@ -2471,21 +2526,36 @@ exports.addLRCountOnNews=functions.https.onRequest((req,res)=>{
                 
             })
          }
-         else{
-            var newslrcountreactsRef1 = admin.database().ref('/newslrcount').child(key)
-            newslrcountreactsRef1.update(lrCountData).then((newslrcountreacsnapshot) => {
-                console.log("snapshot "+newslrcountreacsnapshot)
-                var status={
-                    code:1,
-                    msg:"user Opnion added on News"
-                }
-             
-                return res.status(200).json(status);
-            }).catch(err=>{
-                console.log("error in adding opinon on News"+err);
+        //  if(!snapshot.exists()){
+        //     var newslrcountreactsRef = admin.database().ref('/newslrcount')
+        //     .push(lrCountData).then((newslrcountreacsnapshot) => {
+        //         console.log("snapshot "+newslrcountreacsnapshot)
+        //         var status={
+        //             code:1,
+        //             msg:"user Opnion added on News"
+        //         }
+               
+        //         return res.status(200).json(status);
+        //     }).catch(err=>{
+        //         console.log("error in adding opinon on News"+err);
                 
-            })
-         }
+        //     })
+        //  }
+        //  else{
+        //     var newslrcountreactsRef1 = admin.database().ref('/newslrcount').child(key)
+        //     newslrcountreactsRef1.update(lrCountData).then((newslrcountreacsnapshot) => {
+        //         console.log("snapshot "+newslrcountreacsnapshot)
+        //         var status={
+        //             code:1,
+        //             msg:"user Opnion added on News"
+        //         }
+             
+        //         return res.status(200).json(status);
+        //     }).catch(err=>{
+        //         console.log("error in adding opinon on News"+err);
+                
+        //     })
+        //  }
     }).catch(err=>{
         console.log("error in adding opinon on News"+err);
         var status={
@@ -2596,7 +2666,8 @@ exports.addNewsComments=functions.https.onRequest((req,res)=>{
         "noOfReplies" : 0,
         "noOfAgree" : 0,
         "noOfDisAgree": 0,
-        "noOfNeutral" :0
+        "noOfNeutral" :0,
+        "createdOn" : moment().format(),
     }
     var postcommentstRef=admin.database().ref('/postcomments')
     .orderByChild("userId").equalTo(req.body.userId)
@@ -2766,6 +2837,25 @@ exports.getAllCommentsByNewsId = functions.https.onRequest((req,res)=>{
     getCommentsRef.once('value',(gotCommentsSnap)=>{
         if(gotCommentsSnap.exists()){
             var finalFunction = function(){
+                /*finalCommentsArray.sort(function(x, y){
+                    console.log("x is "+x);
+                    console.log("comment obj is "+x.comment);
+                    console.log("x .ocomment is "+JSON.stringify(x.comment));
+                    console.log("comments data is "+x.comment.comments);
+                    //console.log("x is "+JSON.stringify(x));
+                   // console.log("x .ocomment is "+JSON.stringify(x.comment));
+                    var xComment = JSON.parse(x);
+                    var yComment = JSON.parse(y);
+                    console.log("x created on is "+xComment.comment.createdOn);
+                    console.log("y created on is "+yComment.comment.createdOn);
+                    
+                    // console.log("created on "+JSON.stringify(x.comment.createdOn));
+                    // console.log("y.comment.createdOn "+y.comment.createdOn);
+                    // console.log("x.comment.createdOn "+x.comment.createdOn);
+                    // console.log("new Date(y.comment.createdOn) is "+new Date(y.comment.createdOn).getTime());
+                    // console.log("new Date(x.comment.createdOn)" +new Date(x.comment.createdOn));
+                     return new Date(y.comment.createdOn) - new Date(x.comment.createdOn);
+                })*/
                 var status = {
                     code :1,
                     msg : "Got Comments",
@@ -2782,7 +2872,7 @@ exports.getAllCommentsByNewsId = functions.https.onRequest((req,res)=>{
                     //console.log("comment is "+JSON.stringify(comment));
                     var userRef=admin.database().ref('/user').child(comment.val().userId);
                     userRef.once('value',(userSnap)=>{
-                       // console.log("got user "+JSON.stringify(userSnap));
+                        console.log("got comments "+comment.comments);
                         var commentsData = {
                             userId : userSnap.key,
                             user : userSnap,
@@ -4993,6 +5083,26 @@ function sendNoti(toUserId,APNKey,title,type,fromUserId){
 //https://us-central1-logos-app-915d7.cloudfunctions.net/getNotifications
 // data = {	"userId":"-LIjqeXa4rhjySYcfzom"}
 exports.getNotifications = functions.https.onRequest((req,res)=>{
+
+    moment.updateLocale('en', {
+        relativeTime : {
+            future: "%s",
+            past:   "%s",
+            s  : '1s',
+            ss : '%d s',
+            m:  "1m",
+            mm: "%d m",
+            h:  "1h",
+            hh: "%dh",
+            d:  "1d",
+            dd: "%dd",
+            M:  "1m",
+            MM: "%dm",
+            y:  "1y",
+            yy: "%dy"
+        }
+    });
+
     var userId = req.body.userId;
     var start = req.body.start;
     var offset =parseInt(req.body.offset);
