@@ -3109,10 +3109,12 @@ exports.addReplyOnComment=functions.https.onRequest((req,res)=>{
         if(snapshot.exists()){
             var key="";
             var CommentId="";
-            var isPush=true;
+            var isPush=false;
             snapshot.forEach(function (childSnapshot) {
                 key= childSnapshot.key;
                 CommentId=childSnapshot.val().commentId
+                console.log("CommentId "+CommentId);
+                console.log("req.body.commentId "+req.body.commentId)
                 if(CommentId === req.body.commentId){
                     var commentsonpostcommentsRef2 = admin.database().ref('/commentsonpostcomments').child(key)
                     commentsonpostcommentsRef2.update(replyData).then((commentsonpostcommentssnapshot) => {
@@ -3131,23 +3133,27 @@ exports.addReplyOnComment=functions.https.onRequest((req,res)=>{
                     })
                 }
                 else{
-                    admin.database().ref('/commentsonpostcomments').push(replyData)
-                    .then(replySnap=>{
-                        console.log("replySnap "+JSON.stringify(replySnap));
-                        var status={
-                            code:1,
-                            msg:"Reply Added Successfully"
-                        }
-                        updateReplyNo(req.body.commentId);
-                        sendreplyNotification(req.body.commentId,req.body.userId);
-                        addUserPointAfterCommentsOrReply(req.body.userId,"Reply")
-                        return res.status(200).json(status);
-                    }).catch(err=>{
-                        console.log("err in adding reply "+err);
-                    })
+                    isPush=true;
+                    return false;
                 }
             
             });
+            if(isPush){
+                admin.database().ref('/commentsonpostcomments').push(replyData)
+                .then(replySnap=>{
+                    console.log("replySnap "+JSON.stringify(replySnap));
+                    var status={
+                        code:1,
+                        msg:"Reply Added Successfully"
+                    }
+                    updateReplyNo(req.body.commentId);
+                    sendreplyNotification(req.body.commentId,req.body.userId);
+                    addUserPointAfterCommentsOrReply(req.body.userId,"Reply")
+                    return res.status(200).json(status);
+                }).catch(err=>{
+                    console.log("err in adding reply "+err);
+                })
+            }
         }
         else{
            
