@@ -2776,6 +2776,24 @@ function sendCommentNotification(postId,userId){
  */
 
 exports.getRepliesOfComments = functions.https.onRequest((req,res)=>{
+    moment.updateLocale('en', {
+        relativeTime : {
+            future: "%s",
+            past:   "%s",
+            s  : '1s',
+            ss : '%d s',
+            m:  "1m",
+            mm: "%d m",
+            h:  "1h",
+            hh: "%dh",
+            d:  "1d",
+            dd: "%dd",
+            M:  "1m",
+            MM: "%dm",
+            y:  "1y",
+            yy: "%dy"
+        }
+    });
     var commentId = req.query.key;
     var finalRepliesArray = [];
     var replyRef=admin.database().ref('/commentsonpostcomments').orderByChild('commentId').equalTo(commentId);
@@ -2785,7 +2803,7 @@ exports.getRepliesOfComments = functions.https.onRequest((req,res)=>{
                 var status = {
                     code : 1,
                     msg : "Got replies",
-                    data : finalRepliesArray
+                    data : finalRepliesArray.reverse()
                 }
                 return res.status(200).json(status);
             }
@@ -2796,14 +2814,20 @@ exports.getRepliesOfComments = functions.https.onRequest((req,res)=>{
                     var userRef=admin.database().ref('/user').child(reply.val().userId);
                     userRef.once('value',(replyUserSnap)=>{
                         console.log("replyUserSnap is "+JSON.stringify(replyUserSnap));
+                        var timeago=moment(reply.val().createdOn, "YYYY-MM-DD HH:mm Z").fromNow()
                         var replyData = {
                             userId : replyUserSnap.key,
                             user : replyUserSnap,
                             replyId : reply.key,
-                            reply : reply
+                            reply : reply,
+                            createdOn:reply.val().createdOn,
+                            timeago:timeago
                         }
                         finalRepliesArray.push(replyData);
                         if(finalRepliesArray.length === repliesSnap.numChildren()){
+                            finalRepliesArray.sort(function(a, b) {
+                                return parseFloat(b.createdOn) - parseFloat(a.createdOn);
+                            });
                             resolve(finalFunction());
                         }
                     })
@@ -2831,35 +2855,36 @@ exports.getRepliesOfComments = functions.https.onRequest((req,res)=>{
  */
 
 exports.getAllCommentsByNewsId = functions.https.onRequest((req,res)=>{
+    
+    moment.updateLocale('en', {
+        relativeTime : {
+            future: "%s",
+            past:   "%s",
+            s  : '1s',
+            ss : '%d s',
+            m:  "1m",
+            mm: "%d m",
+            h:  "1h",
+            hh: "%dh",
+            d:  "1d",
+            dd: "%dd",
+            M:  "1m",
+            MM: "%dm",
+            y:  "1y",
+            yy: "%dy"
+        }
+    });
     var newsId = req.query.key;
     var finalCommentsArray = [];
     var getCommentsRef = admin.database().ref('/postcomments').orderByChild('postId').equalTo(newsId);
     getCommentsRef.once('value',(gotCommentsSnap)=>{
         if(gotCommentsSnap.exists()){
             var finalFunction = function(){
-                /*finalCommentsArray.sort(function(x, y){
-                    console.log("x is "+x);
-                    console.log("comment obj is "+x.comment);
-                    console.log("x .ocomment is "+JSON.stringify(x.comment));
-                    console.log("comments data is "+x.comment.comments);
-                    //console.log("x is "+JSON.stringify(x));
-                   // console.log("x .ocomment is "+JSON.stringify(x.comment));
-                    var xComment = JSON.parse(x);
-                    var yComment = JSON.parse(y);
-                    console.log("x created on is "+xComment.comment.createdOn);
-                    console.log("y created on is "+yComment.comment.createdOn);
-                    
-                    // console.log("created on "+JSON.stringify(x.comment.createdOn));
-                    // console.log("y.comment.createdOn "+y.comment.createdOn);
-                    // console.log("x.comment.createdOn "+x.comment.createdOn);
-                    // console.log("new Date(y.comment.createdOn) is "+new Date(y.comment.createdOn).getTime());
-                    // console.log("new Date(x.comment.createdOn)" +new Date(x.comment.createdOn));
-                     return new Date(y.comment.createdOn) - new Date(x.comment.createdOn);
-                })*/
+               
                 var status = {
                     code :1,
                     msg : "Got Comments",
-                    data : finalCommentsArray
+                    data : finalCommentsArray.reverse()
                 }
                 return res.status(200).json(status);
             }
@@ -2873,16 +2898,24 @@ exports.getAllCommentsByNewsId = functions.https.onRequest((req,res)=>{
                     var userRef=admin.database().ref('/user').child(comment.val().userId);
                     userRef.once('value',(userSnap)=>{
                         console.log("got comments "+comment.comments);
+                        var timeago=moment(comment.val().createdOn, "YYYY-MM-DD HH:mm Z").fromNow()
                         var commentsData = {
                             userId : userSnap.key,
                             user : userSnap,
                             commentId : comment.key,
-                            comment : comment
+                            comment : comment,
+                            createdOn:comment.val().createdOn,
+                            timeago : timeago
                         }
                         finalCommentsArray.push(commentsData);
                         isProccessing = false;
                         if(gotCommentsSnap.numChildren() === finalCommentsArray.length){
+
                            if(!isProccessing){
+                          finalCommentsArray.sort(function(a, b) {
+                                return parseFloat(a.createdOn) - parseFloat(b.createdOn);
+                            });
+                            console.log("finalAarry :"+JSON.stringify(finalCommentsArray));
                                 console.log("resolving...");
                                 resolve(finalFunction());
                             }
@@ -3101,7 +3134,8 @@ exports.addReplyOnComment=functions.https.onRequest((req,res)=>{
         "openion" : 0,
         "reason" : "",
         "isEdited":0,
-        "userId" : req.body.userId
+        "userId" : req.body.userId,
+        "createdOn" : moment().format(),
       }
       var replyRef=admin.database().ref('/commentsonpostcomments')
       .orderByChild("userId").equalTo(req.body.userId)
@@ -3134,7 +3168,7 @@ exports.addReplyOnComment=functions.https.onRequest((req,res)=>{
                 }
                 else{
                     isPush=true;
-                    return false;
+                    return ;
                 }
             
             });
@@ -3153,6 +3187,9 @@ exports.addReplyOnComment=functions.https.onRequest((req,res)=>{
                 }).catch(err=>{
                     console.log("err in adding reply "+err);
                 })
+            }
+            else{
+                isPush=false;
             }
         }
         else{
