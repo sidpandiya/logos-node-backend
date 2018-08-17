@@ -2726,6 +2726,8 @@ exports.addNewsComments=functions.https.onRequest((req,res)=>{
                     }
                     sendCommentNotification(req.body.postId,req.body.userId);
                     addUserPointAfterCommentsOrReply(req.body.userId,"Comment");
+                    //if comment edited then delete all reply of that comment 
+                    deleteReply(key);
                     return res.status(200).json(status);
                    
                 }).catch(err=>{
@@ -2768,7 +2770,38 @@ function sendCommentNotification(postId,userId){
     })
    
 }
+//function to delete reply if comment edited
+function deleteReply(commentId){
+    var replyRef=admin.database().ref('/commentsonpostcomments').orderByChild('commentId').equalTo(commentId);
+    var count=0
+    replyRef.once('value',(repliesSnap)=>{
+        if(repliesSnap.exists()){
+            repliesSnap.forEach(reply=>{
+                console.log("reply key is "+reply.key)
+                var repRef=admin.database().ref('commentsonpostcomments').child(reply.key);
+                repRef.remove().then(function(snap){
+                    count++;
+                    if(count === repliesSnap.numChildren()){
+                        console.log("All replies removed Successfully");
+                        return 1; 
+                    }
+                    return 1; 
+                }).catch(err=>{
+                    console.log("Error in deleteing reply by commentId "+err);
+                })
+               
+            })
+            return 0 ;
+        }
+        else{
+            console.log("No reply Found for comment ");
+            return 0 ;
+        }
 
+    }).catch(err=>{
+        console.log("Error in getting reply by commentId "+err);
+    })
+}
 /************************************************************************************** */
 /** url to get all comment's replies 
  * input : post ID 
@@ -2884,7 +2917,7 @@ exports.getAllCommentsByNewsId = functions.https.onRequest((req,res)=>{
                 var status = {
                     code :1,
                     msg : "Got Comments",
-                    data : finalCommentsArray.reverse()
+                    data : finalCommentsArray
                 }
                 return res.status(200).json(status);
             }
@@ -3140,42 +3173,23 @@ exports.addReplyOnComment=functions.https.onRequest((req,res)=>{
       var replyRef=admin.database().ref('/commentsonpostcomments')
       .orderByChild("userId").equalTo(req.body.userId)
       replyRef.once('value', function(snapshot) {
+        // reply is already present  
         if(snapshot.exists()){
             var key="";
             var CommentId="";
             var isPush=false;
+            var foundReply = false;
+            var count = 0;
             snapshot.forEach(function (childSnapshot) {
-                key= childSnapshot.key;
-                CommentId=childSnapshot.val().commentId
-                console.log("CommentId "+CommentId);
-                console.log("req.body.commentId "+req.body.commentId)
-                if(CommentId === req.body.commentId){
+               count++;
+               key= childSnapshot.key;
+               CommentId=childSnapshot.val().commentId;
+               if(CommentId === req.body.commentId){
+                foundReply = true;
+                    console.log("in if ");
                     var commentsonpostcommentsRef2 = admin.database().ref('/commentsonpostcomments').child(key)
                     commentsonpostcommentsRef2.update(replyData).then((commentsonpostcommentssnapshot) => {
-                        console.log("commentsonpostcommentssnapshot "+commentsonpostcommentssnapshot)
-                        var status={
-                            code:1,
-                            msg:"Reply Added Successfully"
-                        }
-                        updateReplyNo(req.body.commentId);
-                        sendreplyNotification(req.body.commentId,req.body.userId);
-                        addUserPointAfterCommentsOrReply(req.body.userId,"Reply")
-                        return res.status(200).json(status);
-                    }).catch(err=>{
-                        console.log("error in add reply"+err);
-                        
-                    })
-                }
-                else{
-                    isPush=true;
-                    return ;
-                }
-            
-            });
-            if(isPush){
-                admin.database().ref('/commentsonpostcomments').push(replyData)
-                .then(replySnap=>{
-                    console.log("replySnap "+JSON.stringify(replySnap));
+                    console.log("commentsonpostcommentssnapshot "+commentsonpostcommentssnapshot)
                     var status={
                         code:1,
                         msg:"Reply Added Successfully"
@@ -3184,16 +3198,88 @@ exports.addReplyOnComment=functions.https.onRequest((req,res)=>{
                     sendreplyNotification(req.body.commentId,req.body.userId);
                     addUserPointAfterCommentsOrReply(req.body.userId,"Reply")
                     return res.status(200).json(status);
-                }).catch(err=>{
-                    console.log("err in adding reply "+err);
-                })
-            }
-            else{
-                isPush=false;
-            }
+                    }).catch(err=>{
+                        console.log("error in add reply"+err);
+                    })
+                }
+                console.log("count === snapshot.numChildren is "+count +"==="+snapshot.numChildren()+" and foundReply is "+foundReply);
+                if(count === snapshot.numChildren()){
+                    console.log("loop completed");
+                    if(!foundReply){
+                        console.log("still didnt got reply so adding new reply");
+                        admin.database().ref('/commentsonpostcomments').push(replyData)
+                            .then(replySnap=>{
+                                console.log("replySnap "+JSON.stringify(replySnap));
+                                var status={
+                                    code:1,
+                                    msg:"Reply Added Successfully"
+                                }
+                                updateReplyNo(req.body.commentId);
+                                sendreplyNotification(req.body.commentId,req.body.userId);
+                                addUserPointAfterCommentsOrReply(req.body.userId,"Reply")
+                                return res.status(200).json(status);
+                            }).catch(err=>{
+                                console.log("err in adding reply "+err);
+                            })
+                    }
+                }
+            
+            });
+            //    snapshot.forEach(function (childSnapshot) {
+            //     key= childSnapshot.key;
+            //     CommentId=childSnapshot.val().commentId
+            //     console.log("**********************");
+            //     console.log("CommentId "+CommentId);
+            //     console.log("req.body.commentId "+req.body.commentId)
+            //     console.log("**********************");
+            //     if(CommentId === req.body.commentId){
+            //         console.log("in if ");
+            //         var commentsonpostcommentsRef2 = admin.database().ref('/commentsonpostcomments').child(key)
+            //         commentsonpostcommentsRef2.update(replyData).then((commentsonpostcommentssnapshot) => {
+            //             console.log("commentsonpostcommentssnapshot "+commentsonpostcommentssnapshot)
+            //             var status={
+            //                 code:1,
+            //                 msg:"Reply Added Successfully"
+            //             }
+            //             updateReplyNo(req.body.commentId);
+            //             sendreplyNotification(req.body.commentId,req.body.userId);
+            //             addUserPointAfterCommentsOrReply(req.body.userId,"Reply")
+            //             return res.status(200).json(status);
+            //         }).catch(err=>{
+            //             console.log("error in add reply"+err);
+                        
+            //         })
+            //     }
+            //     else{
+            //         console.log("in else ");
+            //         isPush=true;
+            //         return true;
+            //     }
+            
+            // });
+            // if(isPush){
+            //     admin.database().ref('/commentsonpostcomments').push(replyData)
+            //     .then(replySnap=>{
+            //         console.log("replySnap "+JSON.stringify(replySnap));
+            //         var status={
+            //             code:1,
+            //             msg:"Reply Added Successfully"
+            //         }
+            //         updateReplyNo(req.body.commentId);
+            //         sendreplyNotification(req.body.commentId,req.body.userId);
+            //         addUserPointAfterCommentsOrReply(req.body.userId,"Reply")
+            //         return res.status(200).json(status);
+            //     }).catch(err=>{
+            //         console.log("err in adding reply "+err);
+            //     })
+            // }
+            // else{
+            //     isPush=false;
+            // }
         }
+        // add new reply as reply is not present 
         else{
-           
+           console.log("Adding new reply");
             admin.database().ref('/commentsonpostcomments').push(replyData)
             .then(replySnap=>{
                 console.log("replySnap "+JSON.stringify(replySnap));
@@ -4844,6 +4930,8 @@ exports.updateComment = functions.https.onRequest((req,res)=>{
                     code:1,
                     msg:"Comment Updated Successfully"
                 }
+                  //if comment edited then delete all reply of that comment 
+                  deleteReply(req.body.commentId);
                 return res.status(400).json(status);
             }).catch(err=>{
                 console.log("error while updating comment in commenteditedhistory"+err)
