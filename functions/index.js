@@ -3184,24 +3184,24 @@ exports.addReplyOnComment=functions.https.onRequest((req,res)=>{
                count++;
                key= childSnapshot.key;
                CommentId=childSnapshot.val().commentId;
-               if(CommentId === req.body.commentId){
-                foundReply = true;
-                    console.log("in if ");
-                    var commentsonpostcommentsRef2 = admin.database().ref('/commentsonpostcomments').child(key)
-                    commentsonpostcommentsRef2.update(replyData).then((commentsonpostcommentssnapshot) => {
-                    console.log("commentsonpostcommentssnapshot "+commentsonpostcommentssnapshot)
-                    var status={
-                        code:1,
-                        msg:"Reply Added Successfully"
-                    }
-                    updateReplyNo(req.body.commentId);
-                    sendreplyNotification(req.body.commentId,req.body.userId);
-                    addUserPointAfterCommentsOrReply(req.body.userId,"Reply")
-                    return res.status(200).json(status);
-                    }).catch(err=>{
-                        console.log("error in add reply"+err);
-                    })
-                }
+            //    if(CommentId === req.body.commentId){
+            //     foundReply = true;
+            //         console.log("in if ");
+            //         var commentsonpostcommentsRef2 = admin.database().ref('/commentsonpostcomments').child(key)
+            //         commentsonpostcommentsRef2.update(replyData).then((commentsonpostcommentssnapshot) => {
+            //         console.log("commentsonpostcommentssnapshot "+commentsonpostcommentssnapshot)
+            //         var status={
+            //             code:1,
+            //             msg:"Reply Added Successfully"
+            //         }
+            //         updateReplyNo(req.body.commentId);
+            //         sendreplyNotification(req.body.commentId,req.body.userId);
+            //         addUserPointAfterCommentsOrReply(req.body.userId,"Reply")
+            //         return res.status(200).json(status);
+            //         }).catch(err=>{
+            //             console.log("error in add reply"+err);
+            //         })
+            //     }
                 console.log("count === snapshot.numChildren is "+count +"==="+snapshot.numChildren()+" and foundReply is "+foundReply);
                 if(count === snapshot.numChildren()){
                     console.log("loop completed");
