@@ -2946,7 +2946,7 @@ exports.getAllCommentsByNewsId = functions.https.onRequest((req,res)=>{
 
                            if(!isProccessing){
                           finalCommentsArray.sort(function(a, b) {
-                                return parseFloat(a.createdOn) - parseFloat(b.createdOn);
+                                return new Date(b.createdOn).getTime() - new Date(a.createdOn).getTime();
                             });
                             console.log("finalAarry :"+JSON.stringify(finalCommentsArray));
                                 console.log("resolving...");
