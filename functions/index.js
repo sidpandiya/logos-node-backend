@@ -2836,7 +2836,7 @@ exports.getRepliesOfComments = functions.https.onRequest((req,res)=>{
                 var status = {
                     code : 1,
                     msg : "Got replies",
-                    data : finalRepliesArray.reverse()
+                    data : finalRepliesArray
                 }
                 return res.status(200).json(status);
             }
@@ -2859,7 +2859,7 @@ exports.getRepliesOfComments = functions.https.onRequest((req,res)=>{
                         finalRepliesArray.push(replyData);
                         if(finalRepliesArray.length === repliesSnap.numChildren()){
                             finalRepliesArray.sort(function(a, b) {
-                                return parseFloat(b.createdOn) - parseFloat(a.createdOn);
+                                return new Date(a.createdOn).getTime() - new Date(b.createdOn).getTime();
                             });
                             resolve(finalFunction());
                         }
@@ -3835,7 +3835,7 @@ exports.getUserEndorsmentsDetailsById = functions.https.onRequest((req,res)=>{
     console.log("userId "+userId);
     var endorsments=[];
     var userEndorsmentsref = admin.database().ref('userknowsabout')
-        .orderByChild('userId').equalTo(userId);
+        .orderByChild('userId').equalTo(endorseUserId);
         userEndorsmentsref.once('value').then(function(skillsSnap) {
             console.log("skillsSnap "+JSON.stringify(skillsSnap));
             if(skillsSnap.exists()){
@@ -3854,22 +3854,23 @@ exports.getUserEndorsmentsDetailsById = functions.https.onRequest((req,res)=>{
                         count++;
                         console.log("skils "+JSON.stringify(skills)+ " "+ skillsSnap.numChildren());
                         var userEndorsedsref = admin.database().ref('userEndorsedTo')
-                        .orderByChild('EndorsFromUserId').equalTo(endorseUserId);
+                        .orderByChild('endorsmentID').equalTo(skills.key);
                         userEndorsedsref.once('value').then(function(EndorsedSnap) {
-                           
+                           console.log("EndorsedSnap "+JSON.stringify(EndorsedSnap));
+                           // endorsment entry is present in endorsed table
                             if(EndorsedSnap.exists()){
                               
                                 EndorsedSnap.forEach(endorsment=>{
-                                    if(endorsment.val().endorsmentID === skills.key){
+                                    if(endorsment.val().EndorsFromUserId === userId){
                                         var data={
                                             endorsmentId:skills.key,
                                             endorsmentData:skills.val(),
                                             isEndorsed:true
                                         }
                                         endorsments.push(data);
-                                        endorsments.sort(function(a, b) {
-                                            return parseFloat(b.endorsmentData.endorsementCount) - parseFloat(a.endorsmentData.endorsementCount);
-                                        });
+                                        // endorsments.sort(function(a, b) {
+                                        //     return parseFloat(b.endorsmentData.endorsementCount) - parseFloat(a.endorsmentData.endorsementCount);
+                                        // });
                                     }
                                     else{
                                         var data1={
@@ -3878,27 +3879,30 @@ exports.getUserEndorsmentsDetailsById = functions.https.onRequest((req,res)=>{
                                             isEndorsed:false
                                         }
                                         endorsments.push(data1);
-                                        endorsments.sort(function(a, b) {
-                                            return parseFloat(b.endorsmentData.endorsementCount) - parseFloat(a.endorsmentData.endorsementCount);
-                                        });
+                                        // endorsments.sort(function(a, b) {
+                                        //     return parseFloat(b.endorsmentData.endorsementCount) - parseFloat(a.endorsmentData.endorsementCount);
+                                        // });
                                     }
                                 })
                             }
                             else{
+                                console.log("dont have already endorsed skills");
                                 var data={
                                     endorsmentId:skills.key,
                                     endorsmentData:skills.val(),
                                     isEndorsed:false
                                 }
                                 endorsments.push(data);
-                                endorsments.sort(function(a, b) {
-                                    return parseFloat(b.endorsmentData.endorsementCount) - parseFloat(a.endorsmentData.endorsementCount);
-                                });
+                                // endorsments.sort(function(a, b) {
+                                //     return parseFloat(b.endorsmentData.endorsementCount) - parseFloat(a.endorsmentData.endorsementCount);
+                                // });
                             }
                             console.log("count "+count);
                             console.log("endorsments.length "+endorsments.length);
                             if(skillsSnap.numChildren() === endorsments.length){
-                               
+                                endorsments.sort(function(a, b) {
+                                        return parseFloat(b.endorsmentData.endorsementCount) - parseFloat(a.endorsmentData.endorsementCount);
+                                    });
                                 resolve(myFunctToRunAfter())
                                
                             }
@@ -5138,7 +5142,7 @@ function sendNoti(toUserId,APNKey,title,type,fromUserId){
             // if user endorse other user
             else if(type === 3){
                 msgTitle  = "Endorsed";
-                msgBody = userDetails.name+ "endorsed on your skill.";
+                msgBody = userDetails.name+ " endorsed on your skill.";
             }
             // if user unendorse other user
             else if(type === 4){
