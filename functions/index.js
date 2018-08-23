@@ -165,7 +165,7 @@ function updateAgreeCountVal(commentId){
             var data={
                 "noOfNeutral": noOfNeutral,
                 "noOfAgree":noOfAgree,
-                "noOfDisagree":noOfDisagree
+                "noOfDisAgree":noOfDisagree
             }
             commentRef.update(data).then(updateCommentSnap=>{
 
