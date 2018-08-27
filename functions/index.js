@@ -3688,7 +3688,7 @@ exports.getUserById = functions.https.onRequest((req,res)=>{
                     }
                     cred.push(livesData);
                     var userSubscriberref = admin.database().ref('userSubscription')
-                    .orderByChild('subscribeTo').equalTo(userId);
+                    .orderByChild('userId').equalTo(userId);
                     userSubscriberref.once('value').then(function(subSnap) {
                         console.log("subSnap "+JSON.stringify(subSnap));
                         var subpoints=0;
@@ -3858,10 +3858,14 @@ exports.getUserEndorsmentsDetailsById = functions.https.onRequest((req,res)=>{
                         userEndorsedsref.once('value').then(function(EndorsedSnap) {
                            console.log("EndorsedSnap "+JSON.stringify(EndorsedSnap));
                            // endorsment entry is present in endorsed table
+                           var isPush=false;
                             if(EndorsedSnap.exists()){
                               
                                 EndorsedSnap.forEach(endorsment=>{
+                                    console.log("endorsment.val().EndorsFromUserId "+endorsment.val().EndorsFromUserId);
+                                    console.log("userId "+userId);
                                     if(endorsment.val().EndorsFromUserId === userId){
+                                        console.log("when endorsment user ids are same");
                                         var data={
                                             endorsmentId:skills.key,
                                             endorsmentData:skills.val(),
@@ -3873,17 +3877,28 @@ exports.getUserEndorsmentsDetailsById = functions.https.onRequest((req,res)=>{
                                         // });
                                     }
                                     else{
-                                        var data1={
-                                            endorsmentId:skills.key,
-                                            endorsmentData:skills.val(),
-                                            isEndorsed:false
-                                        }
-                                        endorsments.push(data1);
+                                        console.log("when endorsment user ids are differents");
+                                        isPush=true;
+                                        return true;
+                                        // var data1={
+                                        //     endorsmentId:skills.key,
+                                        //     endorsmentData:skills.val(),
+                                        //     isEndorsed:false
+                                        // }
+                                        // endorsments.push(data1);
                                         // endorsments.sort(function(a, b) {
                                         //     return parseFloat(b.endorsmentData.endorsementCount) - parseFloat(a.endorsmentData.endorsementCount);
                                         // });
                                     }
                                 })
+                                  if(isPush){
+                                var data1={
+                                    endorsmentId:skills.key,
+                                    endorsmentData:skills.val(),
+                                    isEndorsed:false
+                                }
+                                endorsments.push(data1);
+                            }
                             }
                             else{
                                 console.log("dont have already endorsed skills");
@@ -3897,7 +3912,8 @@ exports.getUserEndorsmentsDetailsById = functions.https.onRequest((req,res)=>{
                                 //     return parseFloat(b.endorsmentData.endorsementCount) - parseFloat(a.endorsmentData.endorsementCount);
                                 // });
                             }
-                            console.log("count "+count);
+                          
+                            console.log("count "+skillsSnap.numChildren());
                             console.log("endorsments.length "+endorsments.length);
                             if(skillsSnap.numChildren() === endorsments.length){
                                 endorsments.sort(function(a, b) {
@@ -4178,8 +4194,8 @@ exports.getUserByIdAndSubscriptionDetails = functions.https.onRequest((req,res)=
                                 subSnap.forEach(sub=>{
                                     count++;
                                     subpoints=subpoints+1;
-                                    console.log("sub "+JSON.stringify(sub));
-                                    if(userId === sub.val().userId){
+                                    console.log("sub "+JSON.stringify(sub)+" subpoints "+subpoints);
+                                    if(userToBeSubscribe === sub.val().subscribeTo){
                                         console.log("in if ");
                                         isSubscribe=true
                                     }
@@ -4898,6 +4914,7 @@ exports.addFeedback = functions.https.onRequest((req,res)=>{
 }
 */
 exports.updateComment = functions.https.onRequest((req,res)=>{
+    console.log("prev comment id is "+req.body.commentId);
     var commentRef = admin.database().ref('postcomments')
     .child(req.body.commentId)
     commentRef.once('value').then(commentSnap=> {
