@@ -5153,27 +5153,27 @@ function sendNoti(toUserId,APNKey,title,type,fromUserId){
             // if user comments on news
             else if(type === 2){
                 msgTitle  = "Comments";
-                msgBody = userDetails.name+" commented on your news.";
+                msgBody = userDetails.name+" commented on your article.";
             }
             // if user replies on comment
             // if user endorse other user
             else if(type === 3){
                 msgTitle  = "Endorsed";
-                msgBody = userDetails.name+ " endorsed on your skill.";
+                msgBody = userDetails.name+" endorsed you for a subject.";
             }
             // if user unendorse other user
             else if(type === 4){
                 msgTitle  = "Unendorsed";
-                msgBody = userDetails.name+" unendorsed your skill.";
+                msgBody = userDetails.name+" unendorsed you for a subject.";
             }
             // if user unsubscribe to user
             else if(type === 5){
                 msgTitle  = "Unsubscribe";
-                msgBody = userDetails.name+" unscbscribed you.";
+                msgBody = userDetails.name+" unsubscribed to you.";
             }
             else if(type === 6){
                 msgTitle  = "Reply";
-                msgBody = userDetails.name+" replied on your comment.";
+                msgBody = userDetails.name+" replied to your comment.";
             }
             
             var registrationToken = APNKey
@@ -5204,8 +5204,7 @@ function sendNoti(toUserId,APNKey,title,type,fromUserId){
                             type:type,
                             newsId:title
                         };
-						
-						console.log("add noti table data is "+JSON.stringify(notiData));
+console.log("add noti table data is "+JSON.stringify(notiData));
                         var myRef = admin.database().ref('/userNotification').push(notiData)
                         .then((notiAddSnap) => {
                             console.log("noti added "+notiAddSnap.key);
@@ -5230,7 +5229,6 @@ function sendNoti(toUserId,APNKey,title,type,fromUserId){
     console.log("userRef err "+err);
     })    
 }
-
 /*******************************fetch Notification URL by user ID*/
 //https://us-central1-logos-app-915d7.cloudfunctions.net/getNotifications
 // data = {	"userId":"-LIjqeXa4rhjySYcfzom"}
